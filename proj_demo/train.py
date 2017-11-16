@@ -72,7 +72,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 
     # training mode
     model.train()
-
+    right=0
+    total=0
     end = time.time()
     for i, (vfeat, afeat) in enumerate(train_loader):
         # shuffling the index orders
@@ -143,7 +144,9 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        if i % opt.print_freq == 0:
+        if (i+1) % opt.print_freq == 0:
+            res=(sim>0.5).float()
+            print(torch.sum(res==target_var).data, len(res))
             log_str = 'Epoch: [{0}][{1}/{2}]\t Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t Loss {loss.val:.4f} ({loss.avg:.4f})'.format(epoch, i, len(train_loader), batch_time=batch_time, loss=losses)
             print(log_str)
 
@@ -175,9 +178,10 @@ def main():
         criterion = criterion.cuda()
 
     # optimizer
-    optimizer = optim.SGD(model.parameters(), opt.lr,
-                                momentum=opt.momentum,
-                                weight_decay=opt.weight_decay)
+    # optimizer = optim.SGD(model.parameters(), opt.lr,
+    #                             momentum=opt.momentum,
+    #                             weight_decay=opt.weight_decay)
+    optimizer = optim.Adam(model.parameters(), opt.lr, weight_decay=opt.weight_decay)
 
     # adjust learning rate every lr_decay_epoch
     lambda_lr = lambda epoch: opt.lr_decay ** ((epoch + 1) // opt.lr_decay_epoch)   #poly policy

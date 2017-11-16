@@ -131,35 +131,39 @@ class Test2(nn.Module):
         self.vag=nn.Sequential(
             nn.Conv2d(1,256,(1024,1)),
             nn.BatchNorm2d(256),
+            nn.ReLU(True),
             nn.Conv2d(256,64,1),
             nn.BatchNorm2d(64),
-            nn.Conv2d(64,8,1),
-            nn.BatchNorm2d(8),
-            nn.Softmax2d(),
-            )
-        self.aag=nn.Sequential(
-            nn.Conv2d(1,64,(128,1)),
-            nn.BatchNorm2d(64),
+            nn.ReLU(True),
             nn.Conv2d(64,32,1),
             nn.BatchNorm2d(32),
-            nn.Conv2d(32,8,1),
-            nn.BatchNorm2d(8),
-            nn.Softmax2d(),
+            nn.ReLU(True),
             )
+        self.aag=nn.Sequential(
+            nn.Conv2d(1,32,(128,1)),
+            nn.BatchNorm2d(32),
+            nn.ReLU(True),
+            )
+        self.fc=nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(True),
+            nn.Linear(32, 1),
+        )
         self.init_params()
 
     def init_params(self):
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 nn.init.xavier_uniform(m.weight)
                 nn.init.constant(m.bias, 0)
 
     def forward(self, vfeat, afeat):
-        #feats=torch.cat((vfeat, afeat),1)
-        vag=self.vag(vfeat.unsqueeze(1))
-        aag=self.aag(afeat.unsqueeze(1))
-        res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
-        res=torch.sum(res.squeeze(),1)
+        vag=self.vag(vfeat.unsqueeze(1)).view(-1,120,32)
+        aag=self.aag(afeat.unsqueeze(1)).view(-1,120,32)
+        #res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
+        #res=torch.sum(res.squeeze(),1)
+        feats=torch.cat((vag,aag),2)
+        res=torch.mean(self.fc(feats), 1)
         return res.squeeze()
 
 
@@ -175,5 +179,4 @@ class ContrastiveLoss(torch.nn.Module):
     def forward(self, dist, label):
         loss = torch.mean((1-label) * torch.pow(dist, 2) +
                 (label) * torch.pow(torch.clamp(self.margin - dist, min=0.0), 2))
-
         return loss
