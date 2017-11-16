@@ -129,23 +129,17 @@ class Test2(nn.Module):
     def __init__(self):
         super(Test2, self).__init__()
         self.vag=nn.Sequential(
-            nn.Conv2d(1,256,(1024,1)),
-            nn.BatchNorm2d(256),
-            nn.ReLU(True),
-            nn.Conv2d(256,64,1),
+            nn.Conv2d(1,64,(1024,1)),
             nn.BatchNorm2d(64),
-            nn.ReLU(True),
-            nn.Conv2d(64,32,1),
-            nn.BatchNorm2d(32),
             nn.ReLU(True),
             )
         self.aag=nn.Sequential(
-            nn.Conv2d(1,32,(128,1)),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(1,64,(128,1)),
+            nn.BatchNorm2d(64),
             nn.ReLU(True),
             )
         self.fc=nn.Sequential(
-            nn.Linear(64, 32),
+            nn.Linear(128, 32),
             nn.ReLU(True),
             nn.Linear(32, 1),
         )
@@ -158,8 +152,8 @@ class Test2(nn.Module):
                 nn.init.constant(m.bias, 0)
 
     def forward(self, vfeat, afeat):
-        vag=self.vag(vfeat.unsqueeze(1)).view(-1,120,32)
-        aag=self.aag(afeat.unsqueeze(1)).view(-1,120,32)
+        vag=self.vag(vfeat.unsqueeze(1)).view(-1,120,64)
+        aag=self.aag(afeat.unsqueeze(1)).view(-1,120,64)
         #res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
         #res=torch.sum(res.squeeze(),1)
         feats=torch.cat((vag,aag),2)
