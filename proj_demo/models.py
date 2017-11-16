@@ -86,6 +86,82 @@ class VAMetric2(nn.Module):
 
         return F.pairwise_distance(vfeat, afeat)
 
+# Test of theory
+class Test1(nn.Module):
+    def __init__(self):
+        super(Test1, self).__init__()
+        self.vag=nn.Sequential(
+            nn.Conv2d(1,256,(1024,1)),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256,64,1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64,8,1),
+            nn.BatchNorm2d(8),
+            nn.Softmax2d(),
+            )
+        self.aag=nn.Sequential(
+            nn.Conv2d(1,64,(128,1)),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64,32,1),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32,8,1),
+            nn.BatchNorm2d(8),
+            nn.Softmax2d(),
+            )
+        self.init_params()
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.xavier_uniform(m.weight)
+                nn.init.constant(m.bias, 0)
+
+    def forward(self, vfeat, afeat):
+        #feats=torch.cat((vfeat, afeat),1)
+        vag=self.vag(vfeat.unsqueeze(1))
+        aag=self.aag(afeat.unsqueeze(1))
+        res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
+        res=torch.sum(res.squeeze(),1)
+        return res.squeeze()
+
+
+class Test2(nn.Module):
+    def __init__(self):
+        super(Test2, self).__init__()
+        self.vag=nn.Sequential(
+            nn.Conv2d(1,256,(1024,1)),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256,64,1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64,8,1),
+            nn.BatchNorm2d(8),
+            nn.Softmax2d(),
+            )
+        self.aag=nn.Sequential(
+            nn.Conv2d(1,64,(128,1)),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64,32,1),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32,8,1),
+            nn.BatchNorm2d(8),
+            nn.Softmax2d(),
+            )
+        self.init_params()
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform(m.weight)
+                nn.init.constant(m.bias, 0)
+
+    def forward(self, vfeat, afeat):
+        #feats=torch.cat((vfeat, afeat),1)
+        vag=self.vag(vfeat.unsqueeze(1))
+        aag=self.aag(afeat.unsqueeze(1))
+        res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
+        res=torch.sum(res.squeeze(),1)
+        return res.squeeze()
+
 
 class ContrastiveLoss(torch.nn.Module):
     """

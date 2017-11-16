@@ -29,7 +29,7 @@ parser.add_option('--config',
 (opts, args) = parser.parse_args()
 assert isinstance(opts, object)
 opt = Config(opts.config)
-print(opt)
+#print(opt)
 
 if opt.checkpoint_folder is None:
     opt.checkpoint_folder = 'checkpoints'
@@ -160,7 +160,7 @@ def main():
                                      shuffle=True, num_workers=int(opt.workers))
 
     # create model
-    model = models.VAMetric2()
+    model = models.Test2()
 
     if opt.init_model != '':
         print('loading pretrained model from {0}'.format(opt.init_model))
