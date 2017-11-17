@@ -81,15 +81,19 @@ def test(video_loader, audio_loader, model, opt):
                     simmat = cur_sim.clone()
                 else:
                     simmat = torch.cat((simmat, cur_sim), 1)
-            sorted, indices = torch.sort(simmat, 0)
-            np_indices = indices.cpu().data.numpy()
-            topk = np_indices[:opt.topk,:]
-            for k in np.arange(bz):
-                order = topk[:,k]
-                if k in order:
-                    right = right + 1
-            print('The similarity matrix: \n {}'.format(simmat))
-            print('Testing accuracy (top{}): {:.3f}'.format(opt.topk, right/bz))
+    sorted, indices = torch.sort(simmat, 0)
+    np_indices = indices.cpu().data.numpy()
+    topk = np_indices[:opt.topk,:]
+    print(topk)
+    for k in np.arange(bz):
+        order = topk[:,k]
+        if k in order:
+            right = right + 1
+        else:
+            print(k)
+            print(simmat[k,k], simmat[topk[0, k],k])
+    print('The similarity matrix: \n {}'.format(simmat))
+    print('Testing accuracy (top{}): {:.3f}'.format(opt.topk, right/bz))
 
 def main():
     global opt

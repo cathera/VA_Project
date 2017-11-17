@@ -90,24 +90,30 @@ class VAMetric2(nn.Module):
 class Test1(nn.Module):
     def __init__(self):
         super(Test1, self).__init__()
+        self.__name__='Test1'
         self.vag=nn.Sequential(
-            nn.Conv2d(1,256,(1024,1)),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256,64,1),
+            nn.Conv2d(1,64,(1024,1)),
             nn.BatchNorm2d(64),
-            nn.Conv2d(64,8,1),
-            nn.BatchNorm2d(8),
-            nn.Softmax2d(),
+            nn.ReLU(True),
+            nn.Dropout2d(p=0.2),
             )
         self.aag=nn.Sequential(
             nn.Conv2d(1,64,(128,1)),
             nn.BatchNorm2d(64),
-            nn.Conv2d(64,32,1),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32,8,1),
-            nn.BatchNorm2d(8),
-            nn.Softmax2d(),
+            nn.ReLU(True),
+            nn.Dropout2d(p=0.2),
             )
+        # self.fag=nn.Sequential(
+        #     nn.Linear(128, 64),
+        #     nn.ReLU(True),
+        #     nn.Linear(64, 32),
+        #     nn.ReLU(True),
+        # )
+        self.fc=nn.Sequential(
+            nn.Linear(32, 1),
+            nn.ReLU(True),
+        )
+        self.rnn=nn.RNNCell(128, 32)
         self.init_params()
 
     def init_params(self):
@@ -117,32 +123,39 @@ class Test1(nn.Module):
                 nn.init.constant(m.bias, 0)
 
     def forward(self, vfeat, afeat):
-        #feats=torch.cat((vfeat, afeat),1)
-        vag=self.vag(vfeat.unsqueeze(1))
-        aag=self.aag(afeat.unsqueeze(1))
-        res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
-        res=torch.sum(res.squeeze(),1)
+        vfeats=self.vag(vfeat.unsqueeze(1))
+        afeats=self.aag(afeat.unsqueeze(1))
+        vafeats=torch.cat((vfeats,afeats), 1)
+        #vafeats=torch.transpose(torch.cat((vfeat,afeat), 1),1,3)
+        #feats=self.fag(vafeats)
+        state = Variable(torch.zeros(vafeats.size(0), 32).float(), requires_grad=False).cuda()
+        for _, feat in enumerate(vafeats.chunk(vafeats.size(3), dim=3)):
+            state = self.rnn(feat.squeeze(), state)
+        res=self.fc(state)
         return res.squeeze()
 
 
 class Test2(nn.Module):
     def __init__(self):
         super(Test2, self).__init__()
+        self.__name__='Test2'
         self.vag=nn.Sequential(
-            nn.Conv2d(1,64,(1024,1)),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(1, 128, (1024, 3)),
+            nn.BatchNorm2d(128),
             nn.ReLU(True),
             )
         self.aag=nn.Sequential(
-            nn.Conv2d(1,64,(128,1)),
+            nn.Conv2d(1, 64, (128, 3)),
             nn.BatchNorm2d(64),
             nn.ReLU(True),
             )
         self.fc=nn.Sequential(
-            nn.Linear(128, 32),
+            nn.Dropout2d(),
+            nn.Linear(128+64, 64),
             nn.ReLU(True),
-            nn.Linear(32, 1),
+            nn.Linear(64, 2),
         )
+        self.softmax=nn.Softmax2d()
         self.init_params()
 
     def init_params(self):
@@ -152,12 +165,12 @@ class Test2(nn.Module):
                 nn.init.constant(m.bias, 0)
 
     def forward(self, vfeat, afeat):
-        vag=self.vag(vfeat.unsqueeze(1)).view(-1,120,64)
-        aag=self.aag(afeat.unsqueeze(1)).view(-1,120,64)
-        #res=torch.pow(torch.sum(torch.pow(vag-aag,2),1),0.5)
-        #res=torch.sum(res.squeeze(),1)
-        feats=torch.cat((vag,aag),2)
-        res=torch.mean(self.fc(feats), 1)
+        vfeat=self.vag(vfeat.unsqueeze(1))
+        afeat=self.aag(afeat.unsqueeze(1))
+        vafeats=torch.transpose(torch.cat((vfeat,afeat), 1),1,3)
+        feats=torch.transpose(self.fc(vafeats), 1, 3)
+        conf=self.softmax(feats)
+        res=torch.mean(conf[:, 0, :, :], 2)
         return res.squeeze()
 
 
@@ -173,4 +186,5 @@ class ContrastiveLoss(torch.nn.Module):
     def forward(self, dist, label):
         loss = torch.mean((1-label) * torch.pow(dist, 2) +
                 (label) * torch.pow(torch.clamp(self.margin - dist, min=0.0), 2))
+        # loss=torch.mean(torch.pow(label-dist, 2))
         return loss

@@ -122,6 +122,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         sim = model(vfeat_var, afeat_var)   # inference simialrity
         loss = criterion(sim, target_var)   # compute contrastive loss
 
+        res=(sim>0.5).float()
+        right+=torch.sum(res==target_var).data[0]
         ##############################
         # update loss in the loss meter
         ##############################
@@ -144,11 +146,10 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        if (i+1) % opt.print_freq == 0:
-            res=(sim>0.5).float()
-            print(torch.sum(res==target_var).data, len(res))
+        if i % opt.print_freq == 0:
             log_str = 'Epoch: [{0}][{1}/{2}]\t Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t Loss {loss.val:.4f} ({loss.avg:.4f})'.format(epoch, i, len(train_loader), batch_time=batch_time, loss=losses)
             print(log_str)
+    print(right/2540, 2540-right)
 
 # learning rate adjustment function
 def LR_Policy(optimizer, init_lr, policy):
@@ -177,7 +178,7 @@ def main():
         model = model.cuda()
         criterion = criterion.cuda()
 
-    # optimizer
+
     # optimizer = optim.SGD(model.parameters(), opt.lr,
     #                             momentum=opt.momentum,
     #                             weight_decay=opt.weight_decay)
@@ -197,7 +198,7 @@ def main():
         # save checkpoint every 10 epochs
         ##################################
         if ((epoch+1) % opt.epoch_save) == 0:
-            path_checkpoint = '{0}/{1}_state_epoch{2}.pth'.format(opt.checkpoint_folder, opt.prefix, epoch+1)
+            path_checkpoint = '{0}/{1}_state.pth'.format(opt.checkpoint_folder, model.__name__)
             utils.save_checkpoint(model.state_dict(), path_checkpoint)
 
 if __name__ == '__main__':

@@ -4,8 +4,8 @@ gpu_id: '0'
 data_dir: ./filelists/Train     # Your dataset path
 video_flist: './filelists/Video_Name_List.txt'
 audio_flist: './filelists/Audio_Name_List.txt'
-workers: 1
+workers: 0
 batchSize: 40
 checkpoint_folder: ./checkpoints
-init_model: './checkpoints/Test2_state_epoch10.pth'
+init_model: './checkpoints/Test2_state_nodo.pth'
 topk: 5
