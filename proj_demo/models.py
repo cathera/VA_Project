@@ -103,12 +103,6 @@ class Test1(nn.Module):
             nn.ReLU(True),
             nn.Dropout2d(p=0.2),
             )
-        # self.fag=nn.Sequential(
-        #     nn.Linear(128, 64),
-        #     nn.ReLU(True),
-        #     nn.Linear(64, 32),
-        #     nn.ReLU(True),
-        # )
         self.fc=nn.Sequential(
             nn.Linear(32, 1),
             nn.ReLU(True),
@@ -140,20 +134,21 @@ class Test2(nn.Module):
         super(Test2, self).__init__()
         self.__name__='Test2'
         self.vag=nn.Sequential(
-            nn.Conv2d(1, 128, (1024, 3)),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(1, 256, (1024, 4)),
+            nn.BatchNorm2d(256),
             nn.ReLU(True),
             )
         self.aag=nn.Sequential(
-            nn.Conv2d(1, 64, (128, 3)),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(1, 256, (128, 4)),
+            nn.BatchNorm2d(256),
             nn.ReLU(True),
             )
         self.fc=nn.Sequential(
-            nn.Dropout2d(),
-            nn.Linear(128+64, 64),
+            #nn.Dropout2d(),
+            nn.Linear(512, 256),
             nn.ReLU(True),
-            nn.Linear(64, 2),
+            nn.Dropout(),
+            nn.Linear(256, 2),
         )
         self.softmax=nn.Softmax2d()
         self.init_params()
@@ -173,6 +168,43 @@ class Test2(nn.Module):
         res=torch.mean(conf[:, 0, :, :], 2)
         return res.squeeze()
 
+class Test3(nn.Module):
+    def __init__(self):
+        super(Test3, self).__init__()
+        self.__name__='Test3'
+        self.sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 128),
+            nn.ReLU(True),
+            nn.Linear(128, 1)
+        )
+        self.pred_sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 128),
+            nn.ReLU(True),
+            nn.Linear(128, 1)
+        )
+        self.softmax=nn.Softmax2d()
+        self.fc=nn.Linear(2, 1)
+        self.init_params()
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.xavier_uniform(m.weight)
+                nn.init.constant(m.bias, 0)
+
+    def forward(self, vfeat, afeat):
+        vfeat=torch.transpose(vfeat, 1, 2)
+        afeat=torch.transpose(afeat, 1, 2)
+        vafeats=torch.cat((vfeat[:,:-1,:], afeat[:,:-1,:]), 2)
+        pred_feats=torch.cat((vfeat[:,1:,:], afeat[:,:-1,:]), 2)
+        sim=self.sim(vafeats)
+        pred_sim=self.pred_sim(pred_feats)
+        res=torch.mean(self.fc(torch.cat((sim, pred_sim), 2)), 1)
+        return res.squeeze()
 
 class ContrastiveLoss(torch.nn.Module):
     """

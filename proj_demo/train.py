@@ -81,17 +81,27 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         orders = np.arange(bz).astype('int32')
         shuffle_orders = orders.copy()
         np.random.shuffle(shuffle_orders)
+        if (shuffle_orders==orders).all():
+            np.random.shuffle(shuffle_orders)
+        label1 = (orders == shuffle_orders + 0).astype('float32')
+        shuffle_orders=torch.from_numpy(shuffle_orders).long()
 
+        # more negative data
+        augment_order=torch.from_numpy(np.random.permutation(120)).long()
+        vfeat3_source = vfeat[shuffle_orders]
+        vfeat3 = vfeat3_source[:,augment_order,:]
+        afeat3_source = afeat[shuffle_orders]
+        afeat3 = afeat3_source[:,augment_order,:]
+        
         # creating a new data with the shuffled indices
-        afeat2 = afeat[torch.from_numpy(shuffle_orders).long()].clone()
+        afeat2 = afeat[shuffle_orders].clone()
 
         # concat the vfeat and afeat respectively
-        afeat0 = torch.cat((afeat, afeat2), 0)
-        vfeat0 = torch.cat((vfeat, vfeat), 0)
+        afeat0 = torch.cat((afeat, afeat2, afeat3), 0)
+        vfeat0 = torch.cat((vfeat, vfeat, vfeat3), 0)
 
         # generating the labels
         # 1. the labels for the shuffled feats
-        label1 = (orders == shuffle_orders + 0).astype('float32')
         target1 = torch.from_numpy(label1)
 
         # 2. the labels for the original feats
@@ -100,7 +110,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         target2 = torch.from_numpy(label2)
 
         # concat the labels together
-        target = torch.cat((target2, target1), 0)
+        target = torch.cat((target2, target1, torch.zeros(target1.size(0))), 0)
         target = 1 - target
 
         # transpose the feats
@@ -149,7 +159,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         if i % opt.print_freq == 0:
             log_str = 'Epoch: [{0}][{1}/{2}]\t Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t Loss {loss.val:.4f} ({loss.avg:.4f})'.format(epoch, i, len(train_loader), batch_time=batch_time, loss=losses)
             print(log_str)
-    print(right/2540, 2540-right)
+    print(right/1270/3, 1270*3-right)
 
 # learning rate adjustment function
 def LR_Policy(optimizer, init_lr, policy):
@@ -164,7 +174,7 @@ def main():
                                      shuffle=True, num_workers=int(opt.workers))
 
     # create model
-    model = models.Test2()
+    model = models.Test3()
 
     if opt.init_model != '':
         print('loading pretrained model from {0}'.format(opt.init_model))

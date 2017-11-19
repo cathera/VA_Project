@@ -104,7 +104,7 @@ def main():
                                      shuffle=False, num_workers=int(opt.workers))
 
     # create model
-    model = models.Test2()
+    model = models.Test3()
 
     if opt.init_model != '':
         print('loading pretrained model from {0}'.format(opt.init_model))
