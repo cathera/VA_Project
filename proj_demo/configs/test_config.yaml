@@ -7,5 +7,5 @@ audio_flist: './filelists/Audio_Name_List.txt'
 workers: 0
 batchSize: 40
 checkpoint_folder: ./checkpoints
-init_model: './checkpoints/Test3_state.pth'
+init_model: './checkpoints/Test4_state.pth'
 topk: 5

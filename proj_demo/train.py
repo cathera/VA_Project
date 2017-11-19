@@ -92,7 +92,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         vfeat3 = vfeat3_source[:,augment_order,:]
         afeat3_source = afeat[shuffle_orders]
         afeat3 = afeat3_source[:,augment_order,:]
-        
+
         # creating a new data with the shuffled indices
         afeat2 = afeat[shuffle_orders].clone()
 
@@ -174,7 +174,7 @@ def main():
                                      shuffle=True, num_workers=int(opt.workers))
 
     # create model
-    model = models.Test3()
+    model = models.Test4()
 
     if opt.init_model != '':
         print('loading pretrained model from {0}'.format(opt.init_model))

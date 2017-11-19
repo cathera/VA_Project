@@ -52,11 +52,13 @@ def test(video_loader, audio_loader, model, opt):
     """
     train for one epoch on the training set
     """
+    criterion = models.ContrastiveLoss()
     # training mode
     model.eval()
 
     sim_mat = []
     right = 0
+    loss=0
     for _, vfeat in enumerate(video_loader):
         for _, afeat in enumerate(audio_loader):
             # transpose feats
@@ -76,7 +78,10 @@ def test(video_loader, audio_loader, model, opt):
                     vfeat_var = vfeat_var.cuda()
                     afeat_var = afeat_var.cuda()
 
+                target=torch.ones(30)
+                target[k]=0
                 cur_sim = model(vfeat_var, afeat_var).unsqueeze(1)
+                loss += criterion(cur_sim, Variable(target).cuda())
                 if k == 0:
                     simmat = cur_sim.clone()
                 else:
@@ -85,6 +90,7 @@ def test(video_loader, audio_loader, model, opt):
     np_indices = indices.cpu().data.numpy()
     topk = np_indices[:opt.topk,:]
     print(topk)
+    print(loss/bz)
     for k in np.arange(bz):
         order = topk[:,k]
         if k in order:
@@ -104,7 +110,7 @@ def main():
                                      shuffle=False, num_workers=int(opt.workers))
 
     # create model
-    model = models.Test3()
+    model = models.Test4()
 
     if opt.init_model != '':
         print('loading pretrained model from {0}'.format(opt.init_model))

@@ -206,6 +206,47 @@ class Test3(nn.Module):
         res=torch.mean(self.fc(torch.cat((sim, pred_sim), 2)), 1)
         return res.squeeze()
 
+class Test4(nn.Module):
+    def __init__(self):
+        super(Test4, self).__init__()
+        self.__name__='Test4'
+        self.sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 1)
+        )
+        self.pred_sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 1)
+        )
+        self.delayed_sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 1)
+        )
+        self.softmax=nn.Softmax2d()
+        self.fc=nn.Linear(3, 1)
+        self.init_params()
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.xavier_uniform(m.weight)
+                nn.init.constant(m.bias, 0)
+
+    def forward(self, vfeat, afeat):
+        vfeat=torch.transpose(vfeat, 1, 2)
+        afeat=torch.transpose(afeat, 1, 2)
+        vafeats=torch.cat((vfeat[:,:-1,:], afeat[:,:-1,:]), 2)
+        pred_feats=torch.cat((vfeat[:,1:,:], afeat[:,:-1,:]), 2)
+        delayed_feats=torch.cat((vfeat[:,:-1,:], afeat[:,1:,:]), 2)
+        sim=self.sim(vafeats)
+        pred_sim=self.pred_sim(pred_feats)
+        delayed_sim=self.delayed_sim(delayed_feats)
+        res=torch.mean(self.fc(torch.cat((sim, pred_sim, delayed_sim), 2)), 1)
+        return res.squeeze()
+
 class ContrastiveLoss(torch.nn.Module):
     """
     Contrastive loss function.
