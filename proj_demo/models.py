@@ -206,6 +206,17 @@ class Test3(nn.Module):
         res=torch.mean(self.fc(torch.cat((sim, pred_sim), 2)), 1)
         return res.squeeze()
 
+
+class attention(nn.Module):
+    def __init__(self, dim):
+        super(attention, self).__init__()
+        self.attn = nn.Linear(dim, 1)
+    def forward(self, inputs):
+        score = self.attn(inputs):
+        score = F.softmax(score)
+        return score
+
+
 class Test4(nn.Module):
     def __init__(self):
         super(Test4, self).__init__()
@@ -244,6 +255,10 @@ class Test4(nn.Module):
         sim=self.sim(vafeats)
         pred_sim=self.pred_sim(pred_feats)
         delayed_sim=self.delayed_sim(delayed_feats)
+
+        # use attention
+
+
         res=torch.mean(self.fc(torch.cat((sim, pred_sim, delayed_sim), 2)), 1)
         return res.squeeze()
 
