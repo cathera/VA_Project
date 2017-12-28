@@ -57,6 +57,7 @@ class VAMetric(nn.Module):
         return F.pairwise_distance(vfeat, afeat)
 
 
+
 # Visual-audio multimodal metric learning: MaxPool+FC
 class VAMetric2(nn.Module):
     def __init__(self, framenum=120):
@@ -262,6 +263,118 @@ class Test4(nn.Module):
         res=torch.mean(self.fc(torch.cat((sim, pred_sim, delayed_sim), 2)), 1)
         return res.squeeze()
 
+def count_params(net):
+    count = 0
+    for name, param in net.named_parameters():
+        print(name, param.numel())
+        count += param.numel()
+    print(net.__class__.__name__, count)
+
+
+class LSTMAttention(nn.Module):
+    def __init__(self, seq, input_size, hidden_size, num_layers=1, dropout=0.0):
+        super().__init__()
+        self.seq = seq
+        self.olstm = nn.LSTM(input_size, hidden_size,
+                             batch_first=True, num_layers=num_layers, dropout=dropout)
+
+        self.attention = nn.Sequential(
+            nn.Linear(hidden_size, self.seq),
+            nn.Softmax()
+        )
+
+    def forward(self, x):
+        _, (h_t, c_t) = self.olstm(x.detach()[:, 0].unsqueeze(1) * 0)
+        output = []
+        for i in range(self.seq):
+            attn = self.attention(c_t[0]).unsqueeze(1)
+            attn_applied = torch.bmm(attn, x)
+            _, (h_t, c_t) = self.olstm(attn_applied, (h_t, c_t))
+            output.append(h_t[-1])
+
+        return torch.stack(output, dim=1)
+
+
+class Test5(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # 120x1024/128
+        self.vfeature, self.afeature, self.feature, self.seq = 64, 64, 64, 120
+        self.vlstm = nn.GRU(1024, self.vfeature, batch_first=True)
+        self.alstm = nn.GRU(128, self.afeature, batch_first=True)
+        self.olstm = LSTMAttention(self.seq, self.vfeature + self.afeature, self.feature)
+
+        self.dropout = nn.Dropout(p=0.5)  # OK to reuse one
+
+        self.conv = nn.Sequential(
+            # 1x120x64
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=2, stride=2, bias=False),
+            # 32x60x32
+            nn.BatchNorm2d(32, affine=False),
+            nn.LeakyReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+            # 32x30x16
+
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 2), stride=(3, 2), bias=False, groups=32),
+            # 64x10x8
+            nn.BatchNorm2d(64, affine=False),
+            nn.LeakyReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+            # 64x5x4
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(64 * 5 * 4, 64, bias=False),
+            nn.BatchNorm1d(64, affine=False),
+            nn.ReLU(inplace=True),
+
+            nn.Linear(64, 1),
+            nn.Sigmoid()
+        )
+        self.init_params()
+
+    def init_params(self):
+        for name, param in self.named_parameters():
+            if 'conv' in name:
+                nn.init.kaiming_normal(param)
+            elif 'weight' in name:
+                nn.init.xavier_normal(param)
+            elif 'bias' in name:
+                nn.init.constant(param, 0.01)
+
+    def forward(self, vfeat, afeat, logger=None, epoch=None):
+        vfeat = self.dropout(vfeat)
+        afeat = self.dropout(afeat)
+        vfeat, _ = self.vlstm(vfeat)
+        afeat, _ = self.alstm(afeat)
+        # 120x64
+        if logger:
+            logger.add_histogram('vlstm', vfeat.data.cpu().numpy(), epoch, 'auto')
+            logger.add_histogram('alstm', afeat.data.cpu().numpy(), epoch, 'auto')
+
+        x = torch.cat((vfeat, afeat), 2)
+        # 120x128
+        x = self.dropout(x)
+        x = self.olstm(x)
+        if logger:
+            logger.add_histogram('olstm', x.data.cpu().numpy(), epoch, 'auto')
+        # 120x64
+
+        x = x.unsqueeze(1)
+        x = self.dropout(x)
+        x = self.conv(x)
+        if logger:
+            logger.add_histogram('conv', x.data.cpu().numpy(), epoch, 'auto')
+        # 64*5*4
+
+        x = x.view(-1, 64 * 5 * 4)
+        x = self.dropout(x)
+        x = self.fc(x)
+        if logger:
+            logger.add_histogram('fc', x.data.cpu().numpy(), epoch, 'auto')
+
+        return x.squeeze()
+        
 class ContrastiveLoss(torch.nn.Module):
     """
     Contrastive loss function.
