@@ -62,6 +62,89 @@ else:
 print('Random Seed: {0}'.format(opt.manualSeed))
 
 
+def trainTA(train_loader, model, criterion, optimizer, epoch, opt):
+    """
+    train for one epoch on the training set
+    """
+    batch_time = utils.AverageMeter()
+    losses = utils.AverageMeter()
+
+    # training mode
+    model.train()
+
+    end = time.time()
+    for i, (vfeat, afeat) in enumerate(train_loader):
+        # shuffling the index orders
+        bz = vfeat.size()[0]
+        orders = np.arange(bz).astype('int32')
+        shuffle_orders = orders.copy()
+        np.random.shuffle(shuffle_orders)
+        # creating a new data with the shuffled indices
+        afeat2 = afeat[torch.from_numpy(shuffle_orders).long()].clone()
+
+        # concat the vfeat and afeat respectively
+        afeat0 = torch.cat((afeat, afeat2), 0)
+        vfeat0 = torch.cat((vfeat, vfeat), 0)
+
+        # generating the labels
+        # 1. the labels for the shuffled feats
+        label1 = (orders == shuffle_orders + 0).astype('float32')
+        target1 = torch.from_numpy(label1)
+
+        # 2. the labels for the original feats
+        label2 = label1.copy()
+        label2[:] = 1
+        target2 = torch.from_numpy(label2)
+
+        # concat the labels together
+        target = torch.cat((target2, target1), 0).double()
+        target = 1 - target
+
+        # transpose the feats
+        vfeat0 = vfeat0.transpose(2, 1)
+        afeat0 = afeat0.transpose(2, 1)
+
+        # put the data into Variable
+        vfeat_var = Variable(vfeat0.double())
+        afeat_var = Variable(afeat0.double())
+        target_var = Variable(target.double())
+
+        # if you have gpu, then shift data to GPU
+        if opt.cuda:
+            vfeat_var = vfeat_var.cuda()
+            afeat_var = afeat_var.cuda()
+            target_var = target_var.cuda()
+
+        # forward, backward optimize
+        sim = model(vfeat_var, afeat_var)   # inference simialrity
+        loss = criterion(sim, target_var)   # compute contrastive loss
+
+        ##############################
+        # update loss in the loss meter
+        ##############################
+        losses.update(loss.data[0], vfeat0.size(0))
+
+        ##############################
+        # compute gradient and do sgd
+        ##############################
+        optimizer.zero_grad()
+        loss.backward()
+
+        ##############################
+        # gradient clip stuff
+        ##############################
+        #utils.clip_gradient(optimizer, opt.gradient_clip)
+
+        # update parameters
+        optimizer.step()
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+        if i % opt.print_freq == 0:
+            log_str = 'Epoch: [{0}][{1}/{2}]\t Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t Loss {loss.val:.4f} ({loss.avg:.4f})'.format(epoch, i, len(train_loader), batch_time=batch_time, loss=losses)
+            print(log_str)
+
 # training function for metric learning
 def train(train_loader, model, criterion, optimizer, epoch, opt):
     """
@@ -87,7 +170,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         shuffle_orders=torch.from_numpy(shuffle_orders).long()
 
         # more negative data
-        augment_order=torch.from_numpy(np.random.permutation(120)).long()
+        augment_order=torch.from_numpy(np.random.permutation(11)).long()
+        # augment_order=torch.from_numpy(np.random.permutation(120)).long()
         vfeat3_source = vfeat[shuffle_orders]
         vfeat3 = vfeat3_source[:,augment_order,:]
         afeat3_source = afeat[shuffle_orders]
@@ -170,6 +254,7 @@ def LR_Policy(optimizer, init_lr, policy):
 def main():
     global opt
     # model = models.Test2()
+    # model = model.double()
     # train_dataset = dset(opt.data_dir, flist=opt.flist, pca=10)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batchSize,
                                      shuffle=True, num_workers=int(opt.workers))
@@ -201,6 +286,7 @@ def main():
     	#################################
         # train for one epoch
         #################################
+        # train(train_loader, model, criterion, optimizer, epoch, opt)
         train(train_loader, model, criterion, optimizer, epoch, opt)
         LR_Policy(optimizer, opt.lr, lambda_lr(epoch))      # adjust learning rate through poly policy
 

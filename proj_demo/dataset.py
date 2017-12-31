@@ -17,12 +17,12 @@ class VideoFeatDataset(data.Dataset):
             vfeat = self.loader(os.path.join(path, 'vfeat.npy')).astype('float32')    #visual feature
             if self.dequantize is not None:
                 vfeat = self.dequantize(vfeat)
-            if self.pca:
-                final = np.zeros([pca+1, 1024])
+            if self.pca > 0:
+                final = np.zeros([self.pca+1, 1024])
                 t = vfeat.transpose()
                 v_pca = PCA(self.pca).fit_transform(t).transpose()
                 final[0] = vfeat.mean(axis=0)
-                final[1:pca+1] = v_pca
+                final[1:self.pca+1] = v_pca
                 return final
             return vfeat
 
@@ -30,12 +30,12 @@ class VideoFeatDataset(data.Dataset):
             afeat = self.loader(os.path.join(path, 'afeat.npy')).astype('float32')    #audio feature
             if self.dequantize is not None:
                 afeat = self.dequantize(afeat)
-            if self.pca:
-                final = np.zeros([pca+1, 128])
+            if self.pca > 0:
+                final = np.zeros([self.pca+1, 128])
                 t = afeat.transpose()
                 a_pca = PCA(self.pca).fit_transform(t).transpose()
                 final[0] = afeat.mean(axis=0)
-                final[1:pca+1] = a_pca
+                final[1:self.pca+1] = a_pca
                 return final
             return afeat
 
@@ -45,18 +45,18 @@ class VideoFeatDataset(data.Dataset):
             if self.dequantize is not None:
                 vfeat = self.dequantize(vfeat)
                 afeat = self.dequantize(afeat)
-            if self.pca:
-                v_final = np.zeros([pca+1, 1024])
+            if self.pca > 0:
+                v_final = np.zeros([self.pca+1, 1024])
                 v = vfeat.transpose()
                 v_pca = PCA(self.pca).fit_transform(v).transpose()
                 v_final[0] = vfeat.mean(axis=0)
-                v_final[1:pca+1] = v_pca
+                v_final[1:self.pca+1] = v_pca
 
-                a_final = np.zeros([pca+1, 128])
+                a_final = np.zeros([self.pca+1, 128])
                 a = afeat.transpose()
                 a_pca = PCA(self.pca).fit_transform(a).transpose()
                 a_final[0] = afeat.mean(axis=0)
-                a_final[1:pca+1] = a_pca
+                a_final[1:self.pca+1] = a_pca
                 return v_final, a_final
             return vfeat, afeat
 

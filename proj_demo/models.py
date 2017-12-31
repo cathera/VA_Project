@@ -78,7 +78,7 @@ class BiLSTM(nn.Module):
             nn.Linear(32, 1),
             nn.ReLU(True),
         )
-        self.lstm = nn.LSTM(input_size=64, hidden_size=32,num_layers)
+        self.lstm = nn.LSTM(input_size=64, hidden_size=32,num_layers=self.num_layers)
         self.fc = nn.Linear(32*2, 16)  # 2 for bidirection 
 
     def forward(self, vfeat, afeat):
@@ -166,45 +166,81 @@ class Test1(nn.Module):
         res=self.fc(state)
         return res.squeeze()
 
+class Test3_old(nn.Module):
+    def __init__(self):
+        super(Test3_old, self).__init__()
+        self.__name__='Test3_pld'
+        self.sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 128),
+            nn.ReLU(True),
+            nn.Linear(128, 1)
+        )
+        self.pred_sim=nn.Sequential(
+            nn.Linear(1024+128, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 128),
+            nn.ReLU(True),
+            nn.Linear(128, 1)
+        )
+        self.softmax=nn.Softmax2d()
+        self.fc=nn.Linear(2, 1)
+        self.init_params()
 
-# class Test2(nn.Module):
-#     def __init__(self):
-#         super(Test2, self).__init__()
-#         self.__name__='Test2'
-#         self.vag=nn.Sequential(
-#             nn.Conv2d(1, 256, (1024, 4)),
-#             nn.BatchNorm2d(256),
-#             nn.ReLU(True),
-#             )
-#         self.aag=nn.Sequential(
-#             nn.Conv2d(1, 256, (128, 4)),
-#             nn.BatchNorm2d(256),
-#             nn.ReLU(True),
-#             )
-#         self.fc=nn.Sequential(
-#             #nn.Dropout2d(),
-#             nn.Linear(512, 256),
-#             nn.ReLU(True),
-#             nn.Dropout(),
-#             nn.Linear(256, 2),
-#         )
-#         self.softmax=nn.Softmax2d()
-#         self.init_params()
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.xavier_uniform(m.weight)
+                nn.init.constant(m.bias, 0)
+    def forward(self, vfeat, afeat):
+        vfeat=torch.transpose(vfeat, 1, 2)
+        afeat=torch.transpose(afeat, 1, 2)
+        vafeats=torch.cat((vfeat[:,:-1,:], afeat[:,:-1,:]), 2)
+        pred_feats=torch.cat((vfeat[:,1:,:], afeat[:,:-1,:]), 2)
+        sim=self.sim(vafeats)
+        pred_sim=self.pred_sim(pred_feats)
+        res=torch.mean(self.fc(torch.cat((sim, pred_sim), 2)), 1)
+        return res.squeeze()
 
-#     def init_params(self):
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-#                 nn.init.xavier_uniform(m.weight)
-#                 nn.init.constant(m.bias, 0)
+class Test2(nn.Module):
+    def __init__(self):
+        super(Test2, self).__init__()
+        self.__name__='Test2'
+        self.vag=nn.Sequential(
+            nn.Conv2d(1, 256, (1024, 4)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            )
+        self.aag=nn.Sequential(
+            nn.Conv2d(1, 256, (128, 4)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            )
+        self.fc=nn.Sequential(
+            #nn.Dropout2d(),
+            nn.Linear(512, 256),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(256, 2),
+        )
+        self.softmax=nn.Softmax2d()
+        self.init_params()
 
-#     def forward(self, vfeat, afeat):
-#         vfeat=self.vag(vfeat.unsqueeze(1))
-#         afeat=self.aag(afeat.unsqueeze(1))
-#         vafeats=torch.transpose(torch.cat((vfeat,afeat), 1),1,3)
-#         feats=torch.transpose(self.fc(vafeats), 1, 3)
-#         conf=self.softmax(feats)
-#         res=torch.mean(conf[:, 0, :, :], 2)
-#         return res.squeeze()
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.xavier_uniform(m.weight)
+                nn.init.constant(m.bias, 0)
+
+    def forward(self, vfeat, afeat):
+        vfeat=self.vag(vfeat.unsqueeze(1))
+        afeat=self.aag(afeat.unsqueeze(1))
+        vafeats=torch.transpose(torch.cat((vfeat,afeat), 1),1,3)
+        feats=torch.transpose(self.fc(vafeats), 1, 3)
+        conf=self.softmax(feats)
+        res=torch.mean(conf[:, 0, :, :], 2)
+        return res.squeeze()
 
 
 # class attention(nn.Module):

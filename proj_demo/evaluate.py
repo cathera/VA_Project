@@ -81,7 +81,11 @@ def test(video_loader, audio_loader, model, opt):
                 target=torch.ones(30)
                 target[k]=0
                 cur_sim = model(vfeat_var, afeat_var).unsqueeze(1)
-                loss += criterion(cur_sim, Variable(target).cuda())
+
+                if opt.cuda:
+                    loss += criterion(cur_sim, Variable(target).cuda())
+                else:
+                    loss += criterion(cur_sim, Variable(target))
                 if k == 0:
                     simmat = cur_sim.clone()
                 else:
@@ -101,6 +105,50 @@ def test(video_loader, audio_loader, model, opt):
     print('The similarity matrix: \n {}'.format(simmat))
     print('Testing accuracy (top{}): {:.3f}'.format(opt.topk, right/bz))
 
+def testTA(video_loader, audio_loader, model, opt):
+    """
+    train for one epoch on the training set
+    """
+    # training mode
+    model.eval()
+
+    sim_mat = []
+    right = 0
+    for _, vfeat in enumerate(video_loader):
+        for _, afeat in enumerate(audio_loader):
+            # transpose feats
+            vfeat = vfeat.transpose(2,1)
+            afeat = afeat.transpose(2,1)
+
+            # shuffling the index orders
+            bz = vfeat.size()[0]
+            for k in np.arange(bz):
+                cur_vfeat = vfeat[k].clone()
+                cur_vfeats = cur_vfeat.repeat(bz, 1, 1)
+
+                vfeat_var = Variable(cur_vfeats)
+                afeat_var = Variable(afeat)
+
+                if opt.cuda:
+                    vfeat_var = vfeat_var.cuda()
+                    afeat_var = afeat_var.cuda()
+
+                cur_sim = model(vfeat_var, afeat_var)
+                if k == 0:
+                    simmat = cur_sim.clone()
+                else:
+                    simmat = torch.cat((simmat, cur_sim), 1)
+            sorted, indices = torch.sort(simmat, 0)
+            np_indices = indices.cpu().data.numpy()
+            topk = np_indices[:opt.topk,:]
+            for k in np.arange(bz):
+                order = topk[:,k]
+                if k in order:
+                    right = right + 1
+            print('The similarity matrix: \n {}'.format(simmat))
+            print('Testing accuracy (top{}): {:.3f}'.format(opt.topk, right/bz))
+
+
 def main():
     global opt
     # test data loader
@@ -110,6 +158,7 @@ def main():
                                      shuffle=False, num_workers=int(opt.workers))
 
     # create model
+    # model = models.Test2()
     model = models.Test4()
 
     if opt.init_model != '':
