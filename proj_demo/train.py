@@ -170,8 +170,7 @@ def LR_Policy(optimizer, init_lr, policy):
 def main():
     global opt
     # model = models.Test2()
-    # [train_dataset = dset(opt.data_dir, flist=opt.flist, pca=10)
-    # train data loader
+    # train_dataset = dset(opt.data_dir, flist=opt.flist, pca=10)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batchSize,
                                      shuffle=True, num_workers=int(opt.workers))
 
