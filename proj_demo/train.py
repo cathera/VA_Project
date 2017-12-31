@@ -169,13 +169,14 @@ def LR_Policy(optimizer, init_lr, policy):
 # main function for training the model
 def main():
     global opt
+    # model = models.Test2()
+    # [train_dataset = dset(opt.data_dir, flist=opt.flist, pca=10)
     # train data loader
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batchSize,
                                      shuffle=True, num_workers=int(opt.workers))
 
     # create model
     model = models.Test4()
-
     if opt.init_model != '':
         print('loading pretrained model from {0}'.format(opt.init_model))
         model.load_state_dict(torch.load(opt.init_model))

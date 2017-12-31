@@ -56,6 +56,43 @@ class VAMetric(nn.Module):
 
         return F.pairwise_distance(vfeat, afeat)
 
+class BiLSTM(nn.Module):
+    def __init__(self,num_layers=1):
+        super(BiRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        # 用卷积提取特征
+        self.vag=nn.Sequential(
+            nn.Conv2d(1,64,(32,1)),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            nn.Dropout2d(p=0.2),
+            )
+        self.aag=nn.Sequential(
+            nn.Conv2d(1,64,(4,1)),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            nn.Dropout2d(p=0.2),
+            )
+        self.fc=nn.Sequential(
+            nn.Linear(32, 1),
+            nn.ReLU(True),
+        )
+        self.lstm = nn.LSTM(input_size=64, hidden_size=32,num_layers)
+        self.fc = nn.Linear(32*2, 16)  # 2 for bidirection 
+
+    def forward(self, vfeat, afeat):
+        vfeats=self.vag(vfeat.unsqueeze(1))
+        afeats=self.aag(afeat.unsqueeze(1))
+        h0 = Variable(torch.zeros(self.num_layers*2, x.size(0), self.hidden_size)) # 2 for bidirection 
+        c0 = Variable(torch.zeros(self.num_layers*2, x.size(0), self.hidden_size))
+        vfeats=self.vag(vfeat.unsqueeze(1))
+        afeats=self.aag(afeat.unsqueeze(1))
+        vafeats=torch.cat((vfeats,afeats), 1)
+        out, _ = self.lstm(vafeats, (h0, c0))
+        out = self.fc(out[:, -1, :])
+        
+        return out
 
 
 # Visual-audio multimodal metric learning: MaxPool+FC
@@ -169,43 +206,6 @@ class Test1(nn.Module):
 #         res=torch.mean(conf[:, 0, :, :], 2)
 #         return res.squeeze()
 
-class Test2(nn.Module):
-    def __init__(self):
-        super(Test3, self).__init__()
-        self.__name__='Test3'
-        self.sim=nn.Sequential(
-            nn.Linear(1024+128, 256),
-            nn.ReLU(True),
-            nn.Linear(256, 128),
-            nn.ReLU(True),
-            nn.Linear(128, 1)
-        )
-        self.pred_sim=nn.Sequential(
-            nn.Linear(1024+128, 256),
-            nn.ReLU(True),
-            nn.Linear(256, 128),
-            nn.ReLU(True),
-            nn.Linear(128, 1)
-        )
-        self.softmax=nn.Softmax2d()
-        self.fc=nn.Linear(2, 1)
-        self.init_params()
-
-    def init_params(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-                nn.init.xavier_uniform(m.weight)
-                nn.init.constant(m.bias, 0)
-
-    def forward(self, vfeat, afeat):
-        vfeat=torch.transpose(vfeat, 1, 2)
-        afeat=torch.transpose(afeat, 1, 2)
-        vafeats=torch.cat((vfeat[:,:-1,:], afeat[:,:-1,:]), 2)
-        pred_feats=torch.cat((vfeat[:,1:,:], afeat[:,:-1,:]), 2)
-        sim=self.sim(vafeats)
-        pred_sim=self.pred_sim(pred_feats)
-        res=torch.mean(self.fc(torch.cat((sim, pred_sim), 2)), 1)
-        return res.squeeze()
 
 # class attention(nn.Module):
 #     def __init__(self, dim):
@@ -372,6 +372,7 @@ class Test4(nn.Module):
 
         res=torch.mean(self.fc(torch.cat((sim, pred_sim, delayed_sim), 2)), 1)
         return res.squeeze()
+
 
 class ContrastiveLoss(torch.nn.Module):
     """
